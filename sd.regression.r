@@ -1,34 +1,28 @@
 library(lmtest)
 library(sandwich)
-
+library(tidyverse)
 ###REGRESSION Of Real against reference Permuted Data
+# Winning pct for all 4 pro basketball leagues
+all_assoc_pct <- read.csv("winning_pct_all.csv")
 
-###REGRESSION Of Real against reference Permuted Data
-
-all_assoc_pct$Season.num <- as.numeric(rownames(all_assoc_pct))
-all_assoc_pct[71:79, 4] <- c(as.numeric(1:9))
-all_assoc_pct[80:82, 4] <- c(as.numeric(1:3))
-all_assoc_pct[83:105, 4] <- c(as.numeric(1:23))
-
-
-all_assoc_pct$NBA <- ifelse(all_assoc_pct$Assoc == 'NBA', 1, 0)
-all_assoc_pct$ABA <- ifelse(all_assoc_pct$Assoc == 'ABA', 1, 0)
-all_assoc_pct$BAA <- ifelse(all_assoc_pct$Assoc == 'BAA', 1, 0)
-all_assoc_pct$WNBA <- ifelse(all_assoc_pct$Assoc == 'WNBA', 1, 0)
-all_assoc_pct <- all_assoc_pct[-c(3)]
 summary(all_assoc_pct)
 
 all_assoc_pct <- all_assoc_pct %>%
-  mutate(era = case_when(Season.num <= 23 ~ 1,
-                         Season.num >= 24 & Season.num <= 47 ~ 2,
-                         Season.num >= 48 ~ 3)) %>%
-  mutate(decade = case_when(Season.num <= 10 ~ 1,
+  mutate(era = case_when(Season.num <= 23 ~ 1,   # Three eras, 23 years, 22 years, 22 years
+                         Season.num >= 24 & Season.num <= 45 ~ 2,
+                         Season.num >= 46 ~ 3)) %>%
+  mutate(era = ifelse(NBA == 0, NA, era)) %>%
+  mutate(decade = case_when(Season.num <= 10 ~ 1, # Divide by 10 years
                             Season.num >= 11 & Season.num <= 20 ~ 2,
                             Season.num >= 21 & Season.num <= 30 ~ 3,
                             Season.num >= 31 & Season.num <= 40 ~ 4,
                             Season.num >= 41 & Season.num <= 50 ~ 5,
                             Season.num >= 51 & Season.num <= 60 ~ 6,
-                            Season.num >= 61 ~ 7))
+                            Season.num >= 61 ~ 7)) %>%
+  mutate(first.last.dec = case_when(Season.num >= 60 ~ 1,
+                                    Season.num <= 10 ~ 0)) %>% # Divide by first and last decade
+  mutate(first.last.dec = ifelse(NBA == 0, NA, first.last.dec))
+
 
 
 cor(all_assoc_pct)
@@ -48,12 +42,15 @@ regress_pct <- function(league){
   
   ##Run linear regression models and summarize
   ##NBA as reference
-  lm.std_pct <- lm(sd ~ Decade + WNBA)
-  summary(lm.std_pct)
-  #coeftest(lm.std_pct, vcov = vcovHC(lm.std_pct, "HC1"))   # HC1 gives us the White standard errors
-
+  lm.std_pct <- lm(sd ~ Decade)
+  coefs <- coeftest(lm.std_pct, vcov = vcovHC(lm.std_pct, "HC1"))   # HC1 gives us the White standard errors
+  print(summary(lm.std_pct))
+  
+  print(coefs)
   
 }
 ##Apply model
-regress_pct(all_assoc_pct)
+pct_sd_regression <- regress_pct(all_assoc_pct)
+#T Statistic based on the robustness-checked coefs
+t_pct <- pct_sd_regression[2]/pct_sd_regression[7]
 
