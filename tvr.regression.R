@@ -1,3 +1,8 @@
+install.packages("tidyverse")
+install.packages("lmtest")
+install.packages("rlang")
+install.packages("sandwich")
+
 library(tidyverse)
 library(lmtest)
 library(rlang)
@@ -5,6 +10,16 @@ library(sandwich)
 
 #Transitivity Violation Rate Delta
 tvr <- read.csv('tvr_regression_table.csv')
+
+tvr <- tvr |>
+  mutate(Era = case_when(Season <= 23 ~ 1,   # Three eras, 23 years, 22 years, 22 years
+                         Season >= 24 & Season <= 45 ~ 2,
+                         Season >= 46 ~ 3)) |>
+  mutate(Era = ifelse(NBA == 0, NA, Era)) |> #Only NBA
+  mutate(LastDecade = case_when(Season >= 60 ~ 1,
+                                    Season <= 10 ~ 0)) |> # Divide by first and last decade
+  mutate(LastDecade = ifelse(NBA == 0, NA, LastDecade)) #Only NBA
+
 
 regress_delta <- function(df, ...){
   
@@ -38,7 +53,7 @@ model3_seasonyear <- regress_delta(tvr, Season, Year, ABA, BAA, WNBA)
 model4_era <- regress_delta(tvr, Era)
 model5_lastdecade <- regress_delta(tvr, LastDecade)
 
-#T Statistic based on the robustness-checked coefs
+#T Statistic based on the robustness-checked coefs for model 1
 t <- model1_season[2]/model1_season[7]
 
 ## WNBA Model
